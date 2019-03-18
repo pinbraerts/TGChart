@@ -10,6 +10,7 @@ import java.util.*
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.support.v4.widget.CompoundButtonCompat
+import android.support.v7.app.AppCompatDelegate
 import android.support.v7.widget.AppCompatCheckBox
 
 
@@ -26,6 +27,8 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         setSupportActionBar(toolbar)
 
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+
         adapter = object: ArrayAdapter<Column>(this, android.R.layout.simple_list_item_checked) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val view: AppCompatCheckBox = convertView as AppCompatCheckBox? ?: AppCompatCheckBox(context)
@@ -40,9 +43,9 @@ class MainActivity : AppCompatActivity() {
                 )
                 CompoundButtonCompat.setButtonTintList(view, colorStateList)
                 view.isChecked = true
-                view.setOnCheckedChangeListener { button, checked ->
-                    chart.columnsToShow.set(position, view.isChecked)
-                    chart.updateDimensions()
+                view.setOnCheckedChangeListener { _, checked ->
+                    chart.columnsToShow.set(position, checked)
+                    chart.updateDimensions(currentPage["x"]!!)
                     chart.invalidate()
                 }
                 return view
@@ -58,7 +61,7 @@ class MainActivity : AppCompatActivity() {
                 pages.add(currentPage)
                 chart.updatePage(currentPage)
                 adapter.clear()
-                adapter.addAll(chart.yColumns.asList())
+                adapter.addAll(currentPage.filter { it.key != "x" }.values)
             }
         }
     }

@@ -2,6 +2,7 @@ package did.pinbraerts.tgchart
 
 import android.graphics.Paint
 import android.graphics.RectF
+import kotlin.math.absoluteValue
 
 data class Axis(
     var start: Long = DEFAULT_MIN,
@@ -25,17 +26,16 @@ data class Axis(
     val step
         get() = getStep(start, end, num)
     val interval
-        get() = end - start + step
+        get() = if(num < 0) end - start + step else end - start
     val range
-        get() = start..end step step
+        get() = if(num > 0) start..(end + step) step step else start..end step step
 
     companion object {
         fun getStep(start: Long, end: Long, num: Int) =
-            if(num != 0) ((end - start).toFloat() / (num - 1)).toLong()
-            else 0L
+            ((end - start).toFloat() / (num.absoluteValue - 1)).toLong()
 
-        const val DEFAULT_MIN = 0L
-        const val DEFAULT_MAX = 100L
+        const val DEFAULT_MIN = -100L
+        const val DEFAULT_MAX = -1L
         const val DEFAULT_NUM = 6
     }
 

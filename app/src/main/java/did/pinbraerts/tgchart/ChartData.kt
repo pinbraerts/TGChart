@@ -21,7 +21,10 @@ data class Column(
     var data: ArrayList<Long> = arrayListOf(),
     var min: Long = Long.MAX_VALUE,
     var max: Long = Long.MIN_VALUE
-)
+) {
+    val interval
+        get() = max - min
+}
 
 data class Parser(
     val reader: InputStreamReader

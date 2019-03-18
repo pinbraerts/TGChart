@@ -14,8 +14,7 @@ class Chart : View {
     constructor(context: Context?, attrs: AttributeSet?, defStyle: Int): super(context, attrs, defStyle)
 
     var columnsToShow = BitSet()
-    var xColumn: Column = Column()
-    var yColumns: Array<Column> = arrayOf()
+    var yColumns: Array<ColumnCache> = arrayOf()
 
     var ordinate = Axis()
     var abscissa = Axis()
@@ -30,6 +29,10 @@ class Chart : View {
 
     var clipRect = RectF()
 
+    val dataPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        strokeWidth = 2f
+    }
+
     var thikness: Float = 10.0f
 
     var textPadding = 16.0f
@@ -42,6 +45,7 @@ class Chart : View {
 
     fun init() {
         minimap.num = 0
+        ordinate.num *= -1
 
         updateSizes()
         updateRects()
@@ -82,8 +86,12 @@ class Chart : View {
             top = bottom + abscissa.paint.fontMetrics.top
         }
 
-        ordinate.rect.top = 0.0f
-        ordinate.rect.bottom = abscissa.rect.bottom + textPadding - minimapPadding
+        ordinate.rect.apply {
+            left = 0f
+            top = 0.0f
+            right = size
+            bottom = abscissa.rect.bottom + textPadding - minimapPadding
+        }
         ordinate.vertical = false
     }
 
@@ -111,9 +119,10 @@ class Chart : View {
     fun Canvas.drawOrdinate() {
         ordinate.range.forEach { v ->
             val y = ordinate.toWorld(v)
-            drawText(v.toString(), 0.0f + textPadding, ordinate.rect.bottom - y - textPadding, ordinate.paint)
+            drawText(v.prettyToString(), 0.0f + textPadding, ordinate.rect.bottom - y - textPadding, ordinate.paint)
             drawLine(0.0f, (ordinate.rect.bottom - y), size, (ordinate.rect.bottom - y), ordinate.paint)
         }
+        drawValues(abscissa, ordinate, ordinate.rect)
     }
 
     fun Canvas.drawAbscissa() {
@@ -132,50 +141,32 @@ class Chart : View {
         }
     }
 
+    fun Canvas.drawValues(axis: Axis, y: Axis, rect: RectF) {
+        save()
+        clipRect(rect)
+        translate(rect.left, rect.top)
+        yColumns.filterIndexed { i, _ -> columnsToShow[i] }.forEach { yv ->
+            dataPaint.color = yv.color
+            drawLines(yv.lines.mapIndexed { i, fl ->
+                if(i % 2 == 0) axis.toWorld(fl, rect.width())
+                else rect.height() - y.toWorld(fl, rect.height())
+            }.toFloatArray(), dataPaint)
+        }
+        restore()
+    }
+
     fun Canvas.drawMinimap() {
         save()
         clipOut(clipRect)
         drawRect(windowRect, windowPaint)
         restore()
 
-        yColumns.filterIndexed { i, _ -> columnsToShow[i] }.forEachIndexed { _, yv ->
-            val arr = FloatArray(yv.data.size * 4 - 2) {
-                when(it % 4) {
-                    0 -> minimap.toWorld(xColumn.data[it / 4])
-                    1 -> minimap.rect.bottom - ordinate.toWorld(yv.data[it / 4], minimap.rect.height())
-                    2 -> minimap.toWorld(xColumn.data[it / 4 + 1])
-                    else -> minimap.rect.bottom - ordinate.toWorld(yv.data[it / 4 + 1], minimap.rect.height())
-                }
-            }
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = yv.color
-                strokeWidth = 2f
-            }
-            drawLines(arr, paint)
-        }
+        drawValues(minimap, ordinate, minimap.rect)
 
         save()
         clipOut(windowRect)
         drawRect(minimap.rect, minimap.paint)
         restore()
-    }
-
-    fun Canvas.drawValues() {
-        yColumns.filterIndexed { i, _ -> columnsToShow[i] }.forEachIndexed { _, yv ->
-            val arr = FloatArray(yv.data.size * 4 - 2) {
-                when(it % 4) {
-                    0 -> minimap.toWorld(xColumn.data[it / 4])
-                    1 -> minimap.rect.bottom - ordinate.toWorld(yv.data[it / 4], minimap.rect.height())
-                    2 -> minimap.toWorld(xColumn.data[it / 4 + 1])
-                    else -> minimap.rect.bottom - ordinate.toWorld(yv.data[it / 4 + 1], minimap.rect.height())
-                }
-            }
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = yv.color
-                strokeWidth = 2f
-            }
-            drawLines(arr, paint)
-        }
     }
 
     override fun onDraw(c: Canvas) {
@@ -201,31 +192,33 @@ class Chart : View {
     fun updatePage(page: Page) {
         columnsToShow = BitSet(page.size - 1)
         columnsToShow.set(0, page.size - 1)
-        xColumn = page["x"]!!
-        yColumns = page.filter { it.key != "x" }.values.toTypedArray()
+        val xColumn = page["x"]!!
+        yColumns = page.filter { it.key != "x" }.values.map { ColumnCache(xColumn, it) }.toTypedArray()
 
-        updateDimensions()
+        updateDimensions(xColumn)
         updateSizes()
         updateRects()
         invalidate()
     }
 
-    fun updateDimensions() {
+    fun updateDimensions(xColumn: Column) {
         minimap.start = xColumn.min
         minimap.end = xColumn.max
 
         ordinate.start = 0
-        ordinate.end = yColumns.filterIndexed { i, _ -> columnsToShow[i] }.map { it.max }.max()!!
+        ordinate.end = yColumns.filterIndexed { i, _ -> columnsToShow[i] }.map { it.max }.max() ?: 100
 
-        abscissa.start = xColumn.min
-        abscissa.end = xColumn.max
+        if(abscissa.start == Axis.DEFAULT_MIN)
+            abscissa.start = xColumn.min
+        if(abscissa.end == Axis.DEFAULT_MAX)
+            abscissa.end = xColumn.max
     }
 
     fun checkMinimapMode(rx: Float, ry: Float) {
         if (minimap.rect.top.rangeTo(minimap.rect.bottom).contains(ry)) {
             mode = when {
-                rx >= windowRect.left && rx <= windowRect.left + thikness * 2 -> MotionMode.MinimapLeft
-                rx < windowRect.right - thikness * 2 -> MotionMode.MinimapCenter
+                rx >= windowRect.left && rx <= windowRect.left + thikness -> MotionMode.MinimapLeft
+                rx < windowRect.right - thikness -> MotionMode.MinimapCenter
                 rx <= windowRect.right -> MotionMode.MinimapRight
                 else -> MotionMode.MinimapClick
             }
@@ -247,11 +240,11 @@ class Chart : View {
                         abscissa.start = clamp(
                             abscissa.start + dx,
                             minimap.start,
-                            minimap.end - abscissa.interval + abscissa.step
+                            minimap.end - abscissa.interval
                         )
                         abscissa.end = clamp(
                             abscissa.end + dx,
-                            minimap.start + abscissa.interval - abscissa.step,
+                            minimap.start + abscissa.interval,
                             minimap.end
                         )
                     }

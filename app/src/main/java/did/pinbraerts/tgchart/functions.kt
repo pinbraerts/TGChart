@@ -26,3 +26,10 @@ fun <T> adjustAlpha(base: Int, alpha: T) = when(alpha) {
     is Any -> throw IllegalArgumentException("Type (${alpha.javaClass}) is not supported")
     else -> throw IllegalArgumentException("Type is not supported")
 }
+
+fun Long.prettyToString(): String = when {
+    this < 1000 -> this.toString()
+    this < 1000000 -> (this / 1000).toString() + "K"
+    this < 1000000000 -> (this / 1000000).toString() + "M"
+    else -> this.toString()
+}
