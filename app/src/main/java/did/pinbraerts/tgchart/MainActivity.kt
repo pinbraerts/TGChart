@@ -4,15 +4,11 @@ import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.view.*
 import android.widget.ArrayAdapter
-import android.widget.CheckBox
 import kotlinx.android.synthetic.main.activity_main.*
-import java.util.*
 import android.content.res.ColorStateList
-import android.graphics.Color
 import android.support.v4.widget.CompoundButtonCompat
 import android.support.v7.app.AppCompatDelegate
 import android.support.v7.widget.AppCompatCheckBox
-
 
 class MainActivity : AppCompatActivity() {
     var pages = Pages()
@@ -24,14 +20,16 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+//        delegate.applyDayNight()
+
         setContentView(R.layout.activity_main)
         setSupportActionBar(toolbar)
 
-        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-
         adapter = object: ArrayAdapter<Column>(this, android.R.layout.simple_list_item_checked) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                val view: AppCompatCheckBox = convertView as AppCompatCheckBox? ?: AppCompatCheckBox(context)
+                val view: AppCompatCheckBox = convertView as AppCompatCheckBox? ?:
+                    layoutInflater.inflate(R.layout.list_item, parent, false) as AppCompatCheckBox
                 val column = getItem(position) ?: throw IllegalArgumentException("No such item")
                 view.text = column.name
                 val colorStateList = ColorStateList(
@@ -42,7 +40,7 @@ class MainActivity : AppCompatActivity() {
                     intArrayOf(column.color, column.color)
                 )
                 CompoundButtonCompat.setButtonTintList(view, colorStateList)
-                view.isChecked = true
+
                 view.setOnCheckedChangeListener { _, checked ->
                     chart.columnsToShow.set(position, checked)
                     chart.updateDimensions(currentPage["x"]!!)
@@ -68,7 +66,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem) = when(item.itemId) {
         R.id.night_mode_on -> {
-            TODO("change theme")
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            recreate()
+            true
         }
         else -> super.onOptionsItemSelected(item)
     }

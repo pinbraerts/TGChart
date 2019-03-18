@@ -37,7 +37,6 @@ class Chart : View {
 
     var textPadding = 16.0f
     var minimapPadding = 80.0f
-    var size = 1000.0f
 
     var mode = MotionMode.None
     var startX = 0f
@@ -59,37 +58,39 @@ class Chart : View {
         abscissa.paint = ordinate.paint
 
         minimap.paint.apply {
-            color = adjustAlpha(Color.LTGRAY, 0.5)
+            color = adjustAlpha(Color.GRAY, 0.1)
             xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_OVER)
             style = Paint.Style.FILL
         }
         windowPaint.apply {
-            color = Color.LTGRAY
+            color = adjustAlpha(Color.GRAY, 0.3)
+            xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_OVER)
             style = Paint.Style.FILL
         }
     }
 
     fun updateSizes() {
-        size = (Math.min(width - paddingRight - paddingLeft, height - paddingTop - paddingBottom)).toFloat()
+        val hSize = (width - paddingRight - paddingLeft).toFloat()
+        val vSize = (height - paddingTop - paddingBottom).toFloat()
 
         minimap.rect.apply {
-            bottom = size
+            bottom = vSize
             left = 0f
-            right = size
-            top = bottom - size / 10
+            right = hSize
+            top = bottom - vSize / 10
         }
 
         abscissa.rect.apply {
             bottom = minimap.rect.top - minimapPadding
             left = 0f
-            right = size
+            right = hSize
             top = bottom + abscissa.paint.fontMetrics.top
         }
 
         ordinate.rect.apply {
             left = 0f
             top = 0.0f
-            right = size
+            right = hSize
             bottom = abscissa.rect.bottom + textPadding - minimapPadding
         }
         ordinate.vertical = false
@@ -120,7 +121,7 @@ class Chart : View {
         ordinate.range.forEach { v ->
             val y = ordinate.toWorld(v)
             drawText(v.prettyToString(), 0.0f + textPadding, ordinate.rect.bottom - y - textPadding, ordinate.paint)
-            drawLine(0.0f, (ordinate.rect.bottom - y), size, (ordinate.rect.bottom - y), ordinate.paint)
+            drawLine(0.0f, (ordinate.rect.bottom - y), abscissa.rect.right, (ordinate.rect.bottom - y), ordinate.paint)
         }
         drawValues(abscissa, ordinate, ordinate.rect)
     }
@@ -131,7 +132,7 @@ class Chart : View {
             val date = Date(v)
             val txt = dateFormat.format(date)
             val txtHalf: Float = abscissa.paint.measureText(txt) / 2.0f
-            if(x < txtHalf || x > size - txtHalf) return@forEach
+            if(x < txtHalf || x > abscissa.rect.right - txtHalf) return@forEach
             drawText(
                 txt,
                 x + textPadding - txtHalf,
@@ -143,7 +144,7 @@ class Chart : View {
 
     fun Canvas.drawValues(axis: Axis, y: Axis, rect: RectF) {
         save()
-        clipRect(rect)
+//        clipRect(rect)
         translate(rect.left, rect.top)
         yColumns.filterIndexed { i, _ -> columnsToShow[i] }.forEach { yv ->
             dataPaint.color = yv.color
@@ -226,8 +227,10 @@ class Chart : View {
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        val currentX = event.rawX - x - paddingLeft
-        val currentY = event.rawY - y - paddingTop
+        val loc = IntArray(2)
+        getLocationOnScreen(loc)
+        val currentX = event.rawX - loc[0] - paddingLeft
+        val currentY = event.rawY - loc[1] - paddingTop
         val res = when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 checkMinimapMode(currentX, currentY)
