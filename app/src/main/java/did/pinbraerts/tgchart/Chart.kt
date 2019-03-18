@@ -2,14 +2,11 @@ package did.pinbraerts.tgchart
 
 import android.content.Context
 import android.graphics.*
-import android.support.v4.math.MathUtils.clamp
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlin.math.max
-import kotlin.math.min
 
 class Chart : View {
     constructor(context: Context?): super(context)
@@ -163,6 +160,24 @@ class Chart : View {
         restore()
     }
 
+    fun Canvas.drawValues() {
+        yColumns.filterIndexed { i, _ -> columnsToShow[i] }.forEachIndexed { _, yv ->
+            val arr = FloatArray(yv.data.size * 4 - 2) {
+                when(it % 4) {
+                    0 -> minimap.toWorld(xColumn.data[it / 4])
+                    1 -> minimap.rect.bottom - ordinate.toWorld(yv.data[it / 4], minimap.rect.height())
+                    2 -> minimap.toWorld(xColumn.data[it / 4 + 1])
+                    else -> minimap.rect.bottom - ordinate.toWorld(yv.data[it / 4 + 1], minimap.rect.height())
+                }
+            }
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = yv.color
+                strokeWidth = 2f
+            }
+            drawLines(arr, paint)
+        }
+    }
+
     override fun onDraw(c: Canvas) {
         super.onDraw(c)
         c.translate(paddingLeft.toFloat(), paddingTop.toFloat())
@@ -189,18 +204,21 @@ class Chart : View {
         xColumn = page["x"]!!
         yColumns = page.filter { it.key != "x" }.values.toTypedArray()
 
+        updateDimensions()
+        updateSizes()
+        updateRects()
+        invalidate()
+    }
+
+    fun updateDimensions() {
         minimap.start = xColumn.min
         minimap.end = xColumn.max
 
         ordinate.start = 0
-        ordinate.end = yColumns.map { it.max }.max()!!
+        ordinate.end = yColumns.filterIndexed { i, _ -> columnsToShow[i] }.map { it.max }.max()!!
 
         abscissa.start = xColumn.min
         abscissa.end = xColumn.max
-
-        updateSizes()
-        updateRects()
-        invalidate()
     }
 
     fun checkMinimapMode(rx: Float, ry: Float) {

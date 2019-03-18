@@ -42,6 +42,7 @@ class MainActivity : AppCompatActivity() {
                 view.isChecked = true
                 view.setOnCheckedChangeListener { button, checked ->
                     chart.columnsToShow.set(position, view.isChecked)
+                    chart.updateDimensions()
                     chart.invalidate()
                 }
                 return view
