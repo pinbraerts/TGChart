@@ -40,16 +40,14 @@ class MainActivity : AppCompatActivity() {
                 )
                 CompoundButtonCompat.setButtonTintList(view, colorStateList)
                 view.isChecked = true
+                view.setOnCheckedChangeListener { button, checked ->
+                    chart.columnsToShow.set(position, view.isChecked)
+                    chart.invalidate()
+                }
                 return view
             }
         }
         columns.adapter = adapter
-        columns.setOnItemClickListener { adapterView, view, i, l ->
-            if(view is CheckBox) {
-                chart.columnsToShow.set(i, view.isChecked)
-                chart.invalidate()
-            }
-        }
 
         LoadScope().load(resources.openRawResource(R.raw.chart_data)) {
             synchronized(lock) {
@@ -67,7 +65,6 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem) = when(item.itemId) {
         R.id.night_mode_on -> {
             TODO("change theme")
-            true
         }
         else -> super.onOptionsItemSelected(item)
     }
