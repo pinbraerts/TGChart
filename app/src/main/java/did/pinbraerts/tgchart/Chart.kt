@@ -1,5 +1,6 @@
 package did.pinbraerts.tgchart
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.*
 import android.util.AttributeSet
@@ -17,9 +18,9 @@ class Chart : View {
     var columnsToShow = BitSet()
     var yColumns: Array<ColumnCache> = arrayOf()
 
-    var ordinate = Axis()
+    var ordinate = Axis(0, 100, -Axis.DEFAULT_NUM)
     var abscissa = Axis()
-    var minimap = Axis()
+    var minimap = Axis(num=0)
 
     val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d", Locale.getDefault()).apply {
         timeZone = TimeZone.getTimeZone("UTC")
@@ -36,17 +37,13 @@ class Chart : View {
 
     var thikness: Float = 10.0f
 
-    var textPadding = 16.0f
-    var minimapPadding = 16.0f
+    var textPadding = 40.0f
 
     var mode = MotionMode.None
     var startX = 0f
     var startY = 0f
 
     fun init() {
-        minimap.num = 0
-        ordinate.num *= -1
-
         updateSizes()
         updateRects()
 
@@ -78,11 +75,11 @@ class Chart : View {
             bottom = vSize
             left = 0f
             right = hSize
-            top = bottom - vSize / 10
+            top = bottom - vSize / 9
         }
 
         abscissa.rect.apply {
-            bottom = minimap.rect.top - minimapPadding
+            bottom = minimap.rect.top - textPadding
             left = 0f
             right = hSize
             top = bottom + abscissa.paint.fontMetrics.run { top - bottom }
@@ -92,7 +89,7 @@ class Chart : View {
             left = 0f
             top = 0.0f
             right = hSize
-            bottom = abscissa.rect.top + textPadding
+            bottom = abscissa.rect.top - textPadding
         }
         ordinate.vertical = false
     }
@@ -199,12 +196,25 @@ class Chart : View {
         invalidate()
     }
 
+    var ordinateAnimator: ValueAnimator = ValueAnimator()
+
     fun updateDimensions(xColumn: Column) {
         minimap.start = xColumn.min
         minimap.end = xColumn.max
 
-        ordinate.start = 0
-        ordinate.end = yColumns.filterIndexed { i, _ -> columnsToShow[i] }.map { it.max }.max() ?: 100
+        val max = yColumns.filterIndexed { i, _ -> columnsToShow[i] }.map { it.max }.max() ?: 1000
+//        ordinate.end = max
+
+        if(ordinate.end != max) {
+            ordinateAnimator.cancel()
+            ordinateAnimator = ValueAnimator.ofFloat(ordinate.end.toFloat(), max.toFloat())
+            ordinateAnimator.duration = 500
+            ordinateAnimator.addUpdateListener {
+                ordinate.end = (it.animatedValue as Float).toLong()
+                invalidate()
+            }
+            ordinateAnimator.start()
+        }
 
         if(abscissa.start == Axis.DEFAULT_MIN)
             abscissa.start = xColumn.min
