@@ -1,14 +1,17 @@
 package did.pinbraerts.tgchart
 
-import android.support.v7.app.AppCompatActivity
-import android.os.Bundle
-import android.view.*
-import android.widget.ArrayAdapter
-import kotlinx.android.synthetic.main.activity_main.*
 import android.content.res.ColorStateList
+import android.os.Bundle
 import android.support.v4.widget.CompoundButtonCompat
+import android.support.v7.app.AppCompatActivity
 import android.support.v7.app.AppCompatDelegate
 import android.support.v7.widget.AppCompatCheckBox
+import android.view.Menu
+import android.view.MenuItem
+import android.view.View
+import android.view.ViewGroup
+import android.widget.ArrayAdapter
+import kotlinx.android.synthetic.main.activity_main.*
 
 class MainActivity : AppCompatActivity() {
     var pages = Pages()
@@ -20,8 +23,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-//        delegate.applyDayNight()
 
         setContentView(R.layout.activity_main)
         setSupportActionBar(toolbar)
@@ -66,7 +67,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem) = when(item.itemId) {
         R.id.night_mode_on -> {
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            when(AppCompatDelegate.getDefaultNightMode()) {
+                AppCompatDelegate.MODE_NIGHT_AUTO ->
+                    AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+                AppCompatDelegate.MODE_NIGHT_YES ->
+                    AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+                else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_AUTO)
+            }
             recreate()
             true
         }
