@@ -3,6 +3,7 @@ package did.pinbraerts.tgchart
 import android.content.Context
 import android.graphics.*
 import android.util.AttributeSet
+import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.View
 import java.text.SimpleDateFormat
@@ -36,7 +37,7 @@ class Chart : View {
     var thikness: Float = 10.0f
 
     var textPadding = 16.0f
-    var minimapPadding = 80.0f
+    var minimapPadding = 16.0f
 
     var mode = MotionMode.None
     var startX = 0f
@@ -52,7 +53,7 @@ class Chart : View {
         ordinate.paint.apply {
             color = Color.GRAY
             style = Paint.Style.FILL
-            textSize = 40.0f
+            textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 18f, resources.displayMetrics)
         }
 
         abscissa.paint = ordinate.paint
@@ -84,14 +85,14 @@ class Chart : View {
             bottom = minimap.rect.top - minimapPadding
             left = 0f
             right = hSize
-            top = bottom + abscissa.paint.fontMetrics.top
+            top = bottom + abscissa.paint.fontMetrics.run { top - bottom }
         }
 
         ordinate.rect.apply {
             left = 0f
             top = 0.0f
             right = hSize
-            bottom = abscissa.rect.bottom + textPadding - minimapPadding
+            bottom = abscissa.rect.top + textPadding
         }
         ordinate.vertical = false
     }
@@ -131,11 +132,11 @@ class Chart : View {
             val x = abscissa.toWorld(v)
             val date = Date(v)
             val txt = dateFormat.format(date)
-            val txtHalf: Float = abscissa.paint.measureText(txt) / 2.0f
-            if(x < txtHalf || x > abscissa.rect.right - txtHalf) return@forEach
+            val txtWidth: Float = abscissa.paint.measureText(txt)
+            if(abscissa.rect.left.rangeTo(abscissa.rect.right - txtWidth).contains(x).not()) return@forEach
             drawText(
                 txt,
-                x + textPadding - txtHalf,
+                x + textPadding,
                 abscissa.rect.bottom,
                 abscissa.paint
             )
@@ -178,10 +179,6 @@ class Chart : View {
         c.drawMinimap()
     }
 
-    override fun performClick(): Boolean {
-        return super.performClick()
-    }
-
     enum class MotionMode {
         MinimapRight,
         MinimapLeft,
@@ -218,12 +215,33 @@ class Chart : View {
     fun checkMinimapMode(rx: Float, ry: Float) {
         if (minimap.rect.top.rangeTo(minimap.rect.bottom).contains(ry)) {
             mode = when {
-                rx >= windowRect.left && rx <= windowRect.left + thikness -> MotionMode.MinimapLeft
-                rx < windowRect.right - thikness -> MotionMode.MinimapCenter
+                rx < windowRect.left -> MotionMode.MinimapClick
+                rx <= windowRect.left + thikness * 2 -> MotionMode.MinimapLeft
+                rx < windowRect.right - thikness * 2 -> MotionMode.MinimapCenter
                 rx <= windowRect.right -> MotionMode.MinimapRight
                 else -> MotionMode.MinimapClick
             }
         }
+    }
+
+    fun Axis.addStart(dx: Long, last: Long = end - minimap.worldDiff(250f)) {
+        start = clamp(
+            start + dx,
+            minimap.start,
+            last
+        )
+    }
+
+    fun Axis.addEnd(dx: Long, first: Long = start + minimap.worldDiff(250f)) {
+        end = clamp(
+            end + dx,
+            first,
+            minimap.end
+        )
+    }
+
+    override fun performClick(): Boolean {
+        return super.performClick()
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -239,28 +257,23 @@ class Chart : View {
             MotionEvent.ACTION_MOVE -> {
                 val dx = minimap.worldDiff(currentX - startX)
                 when (mode) {
-                    MotionMode.MinimapCenter -> {
-                        abscissa.start = clamp(
-                            abscissa.start + dx,
-                            minimap.start,
-                            minimap.end - abscissa.interval
-                        )
-                        abscissa.end = clamp(
-                            abscissa.end + dx,
-                            minimap.start + abscissa.interval,
-                            minimap.end
-                        )
+                    MotionMode.MinimapCenter ->
+                        abscissa.run {
+                            val lastInt = interval
+                            addStart(dx, minimap.end - lastInt)
+                            addEnd(dx, minimap.start + lastInt)
+                        }
+                    MotionMode.MinimapLeft -> abscissa.addStart(dx)
+                    MotionMode.MinimapRight -> abscissa.addEnd(dx)
+                    MotionMode.MinimapClick -> {
+                        val mdx = minimap.worldDiff(currentX - windowRect.centerX())
+                        abscissa.run {
+                            val lastInt = interval
+                            addStart(mdx, minimap.end - interval)
+                            addEnd(mdx, minimap.start + lastInt)
+                        }
+                        mode = MotionMode.MinimapCenter
                     }
-                    MotionMode.MinimapLeft -> abscissa.start = clamp(
-                        abscissa.start + dx,
-                        minimap.start,
-                        minimap.fromWorld(windowRect.right - 250)
-                    )
-                    MotionMode.MinimapRight -> abscissa.end = clamp(
-                        abscissa.end + dx,
-                        minimap.fromWorld(windowRect.left + 250),
-                        minimap.end
-                    )
                     else -> {
                         return true
                     }
@@ -270,8 +283,17 @@ class Chart : View {
                 true
             }
             MotionEvent.ACTION_UP -> {
+                if(mode == MotionMode.MinimapClick) {
+                    val mdx = minimap.worldDiff(currentX - windowRect.centerX())
+                    abscissa.run {
+                        val lastInt = interval
+                        addStart(mdx, minimap.end - interval)
+                        addEnd(mdx, minimap.start + lastInt)
+                    }
+                    performClick()
+                }
                 mode = MotionMode.None
-                performClick()
+                true
             }
             else -> super.onTouchEvent(event)
         }
