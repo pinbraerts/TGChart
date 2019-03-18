@@ -1,11 +1,12 @@
 package did.pinbraerts.tgchart
 
 data class ColumnCache(
-    val color: Int,
+    var color: Int,
     val max: Long,
     val min: Long,
     val lines: LongArray,
-    val range: Long = max - min
+    val range: Long = max - min,
+    var doCount: Boolean = true
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

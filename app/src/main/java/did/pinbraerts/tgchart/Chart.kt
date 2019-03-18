@@ -15,7 +15,6 @@ class Chart : View {
     constructor(context: Context?, attrs: AttributeSet?): super(context, attrs)
     constructor(context: Context?, attrs: AttributeSet?, defStyle: Int): super(context, attrs, defStyle)
 
-    var columnsToShow = BitSet()
     var yColumns: Array<ColumnCache> = arrayOf()
 
     var ordinate = Axis(0, 100, -Axis.DEFAULT_NUM)
@@ -144,11 +143,11 @@ class Chart : View {
         save()
 //        clipRect(rect)
         translate(rect.left, rect.top)
-        yColumns.filterIndexed { i, _ -> columnsToShow[i] }.forEach { yv ->
-            dataPaint.color = yv.color
-            drawLines(yv.lines.mapIndexed { i, fl ->
-                if(i % 2 == 0) axis.toWorld(fl, rect.width())
-                else rect.height() - y.toWorld(fl, rect.height())
+        yColumns.filter { Color.alpha(it.color) > 0 }.forEach {
+            dataPaint.color = it.color
+            drawLines(it.lines.mapIndexed { i, v ->
+                if(i % 2 == 0) axis.toWorld(v, rect.width())
+                else rect.height() - y.toWorld(v, rect.height())
             }.toFloatArray(), dataPaint)
         }
         restore()
@@ -185,8 +184,6 @@ class Chart : View {
     }
 
     fun updatePage(page: Page) {
-        columnsToShow = BitSet(page.size - 1)
-        columnsToShow.set(0, page.size - 1)
         val xColumn = page["x"]!!
         yColumns = page.filter { it.key != "x" }.values.map { ColumnCache(xColumn, it) }.toTypedArray()
 
@@ -202,7 +199,7 @@ class Chart : View {
         minimap.start = xColumn.min
         minimap.end = xColumn.max
 
-        val max = yColumns.filterIndexed { i, _ -> columnsToShow[i] }.map { it.max }.max() ?: 1000
+        val max = yColumns.filter { it.doCount }.map { it.max }.max() ?: 1000
 //        ordinate.end = max
 
         if(ordinate.end != max) {
@@ -220,6 +217,32 @@ class Chart : View {
             abscissa.start = xColumn.min
         if(abscissa.end == Axis.DEFAULT_MAX)
             abscissa.end = xColumn.max
+    }
+
+    fun setColumnToShow(i: Int, s: Boolean) {
+        if(s) {
+            if(Color.alpha(yColumns[i].color) == 0)
+                ValueAnimator.ofInt(0, 255).run {
+                    duration = 500
+                    addUpdateListener {
+                        val a = it.animatedValue as Int
+                        yColumns[i].color = adjustAlpha(yColumns[i].color, a)
+                        invalidate()
+                    }
+                    start()
+                }
+            yColumns[i].doCount = true
+        } else if(Color.alpha(yColumns[i].color) > 0)
+            ValueAnimator.ofInt(Color.alpha(yColumns[i].color), 0).run {
+                duration = 500
+                addUpdateListener {
+                    val a = it.animatedValue as Int
+                    yColumns[i].color = adjustAlpha(yColumns[i].color, a)
+                    invalidate()
+                }
+                start()
+                yColumns[i].doCount = false
+            }
     }
 
     fun checkMinimapMode(rx: Float, ry: Float) {

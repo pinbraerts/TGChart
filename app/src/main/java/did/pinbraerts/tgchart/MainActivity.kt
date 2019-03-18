@@ -43,9 +43,8 @@ class MainActivity : AppCompatActivity() {
                 CompoundButtonCompat.setButtonTintList(view, colorStateList)
 
                 view.setOnCheckedChangeListener { _, checked ->
-                    chart.columnsToShow.set(position, checked)
+                    chart.setColumnToShow(position, checked)
                     chart.updateDimensions(currentPage["x"]!!)
-                    chart.invalidate()
                 }
                 return view
             }
