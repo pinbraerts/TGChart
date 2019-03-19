@@ -80,6 +80,22 @@ class MainActivity : AppCompatActivity() {
         else -> super.onOptionsItemSelected(item)
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+
+        outState.run {
+            putLong("abscissa.start", chart.abscissa.start)
+            putLong("abscissa.end", chart.abscissa.end)
+        }
+    }
+
+    override fun onRestoreInstanceState(state: Bundle) {
+        super.onRestoreInstanceState(state)
+
+        chart.abscissa.start = state["abscissa.start"] as Long
+        chart.abscissa.end = state["abscissa.end"] as Long
+    }
+
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.toolbar_menu, menu)
         return super.onCreateOptionsMenu(menu)
