@@ -31,7 +31,7 @@ class Chart : View {
     var clipRect = RectF()
 
     val dataPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        strokeWidth = 2f
+        strokeWidth = 0f
     }
 
     var thikness: Float = 10.0f
@@ -120,7 +120,7 @@ class Chart : View {
             drawText(v.prettyToString(), 0.0f + textPadding, ordinate.rect.bottom - y - textPadding, ordinate.paint)
             drawLine(0.0f, (ordinate.rect.bottom - y), abscissa.rect.right, (ordinate.rect.bottom - y), ordinate.paint)
         }
-        drawValues(abscissa, ordinate, ordinate.rect)
+        drawValues(abscissa, ordinate.rect)
     }
 
     fun Canvas.drawAbscissa() {
@@ -139,16 +139,19 @@ class Chart : View {
         }
     }
 
-    fun Canvas.drawValues(axis: Axis, y: Axis, rect: RectF) {
+    fun Canvas.drawValues(axis: Axis, rect: RectF) {
         save()
-//        clipRect(rect)
         translate(rect.left, rect.top)
+//        clipRect(rect)
+        scale(minimap.rect.width() * minimap.interval / axis.interval, rect.height())
+        translate(-(axis.start - minimap.start).toFloat() / minimap.interval, 0f)
+
         yColumns.filter { Color.alpha(it.color) > 0 }.forEach {
             dataPaint.color = it.color
-            drawLines(it.lines.mapIndexed { i, v ->
-                if(i % 2 == 0) axis.toWorld(v, rect.width())
-                else rect.height() - y.toWorld(v, rect.height())
-            }.toFloatArray(), dataPaint)
+            save()
+            scale(1f, it.max.toFloat() / ordinate.end, 0f, 1f)
+            drawLines(it.lines, dataPaint)
+            restore()
         }
         restore()
     }
@@ -159,7 +162,7 @@ class Chart : View {
         drawRect(windowRect, windowPaint)
         restore()
 
-        drawValues(minimap, ordinate, minimap.rect)
+        drawValues(minimap, minimap.rect)
 
         save()
         clipOut(windowRect)
@@ -185,7 +188,9 @@ class Chart : View {
 
     fun updatePage(page: Page) {
         val xColumn = page["x"]!!
-        yColumns = page.filter { it.key != "x" }.values.map { ColumnCache(xColumn, it) }.toTypedArray()
+        yColumns = page.filter { it.key != "x" }.values.map {
+            ColumnCache(xColumn, it)
+        }.toTypedArray()
 
         updateDimensions(xColumn)
         updateSizes()
