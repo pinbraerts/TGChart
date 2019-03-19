@@ -1,5 +1,6 @@
 package did.pinbraerts.tgchart
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.*
 import android.util.AttributeSet
@@ -14,12 +15,11 @@ class Chart : View {
     constructor(context: Context?, attrs: AttributeSet?): super(context, attrs)
     constructor(context: Context?, attrs: AttributeSet?, defStyle: Int): super(context, attrs, defStyle)
 
-    var columnsToShow = BitSet()
     var yColumns: Array<ColumnCache> = arrayOf()
 
-    var ordinate = Axis()
+    var ordinate = Axis(0, 100, -Axis.DEFAULT_NUM)
     var abscissa = Axis()
-    var minimap = Axis()
+    var minimap = Axis(num=0)
 
     val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d", Locale.getDefault()).apply {
         timeZone = TimeZone.getTimeZone("UTC")
@@ -31,22 +31,18 @@ class Chart : View {
     var clipRect = RectF()
 
     val dataPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        strokeWidth = 2f
+        strokeWidth = 0f
     }
 
     var thikness: Float = 10.0f
 
-    var textPadding = 16.0f
-    var minimapPadding = 16.0f
+    var textPadding = 40.0f
 
     var mode = MotionMode.None
     var startX = 0f
     var startY = 0f
 
     fun init() {
-        minimap.num = 0
-        ordinate.num *= -1
-
         updateSizes()
         updateRects()
 
@@ -78,11 +74,11 @@ class Chart : View {
             bottom = vSize
             left = 0f
             right = hSize
-            top = bottom - vSize / 10
+            top = bottom - vSize / 9
         }
 
         abscissa.rect.apply {
-            bottom = minimap.rect.top - minimapPadding
+            bottom = minimap.rect.top - textPadding
             left = 0f
             right = hSize
             top = bottom + abscissa.paint.fontMetrics.run { top - bottom }
@@ -92,7 +88,7 @@ class Chart : View {
             left = 0f
             top = 0.0f
             right = hSize
-            bottom = abscissa.rect.top + textPadding
+            bottom = abscissa.rect.top - textPadding
         }
         ordinate.vertical = false
     }
@@ -124,7 +120,7 @@ class Chart : View {
             drawText(v.prettyToString(), 0.0f + textPadding, ordinate.rect.bottom - y - textPadding, ordinate.paint)
             drawLine(0.0f, (ordinate.rect.bottom - y), abscissa.rect.right, (ordinate.rect.bottom - y), ordinate.paint)
         }
-        drawValues(abscissa, ordinate, ordinate.rect)
+        drawValues(abscissa, ordinate.rect)
     }
 
     fun Canvas.drawAbscissa() {
@@ -143,16 +139,19 @@ class Chart : View {
         }
     }
 
-    fun Canvas.drawValues(axis: Axis, y: Axis, rect: RectF) {
+    fun Canvas.drawValues(axis: Axis, rect: RectF) {
         save()
-//        clipRect(rect)
         translate(rect.left, rect.top)
-        yColumns.filterIndexed { i, _ -> columnsToShow[i] }.forEach { yv ->
-            dataPaint.color = yv.color
-            drawLines(yv.lines.mapIndexed { i, fl ->
-                if(i % 2 == 0) axis.toWorld(fl, rect.width())
-                else rect.height() - y.toWorld(fl, rect.height())
-            }.toFloatArray(), dataPaint)
+//        clipRect(rect)
+        scale(minimap.rect.width() * minimap.interval / axis.interval, rect.height())
+        translate(-(axis.start - minimap.start).toFloat() / minimap.interval, 0f)
+
+        yColumns.filter { Color.alpha(it.color) > 0 }.forEach {
+            dataPaint.color = it.color
+            save()
+            scale(1f, it.max.toFloat() / ordinate.end, 0f, 1f)
+            drawLines(it.lines, dataPaint)
+            restore()
         }
         restore()
     }
@@ -163,7 +162,7 @@ class Chart : View {
         drawRect(windowRect, windowPaint)
         restore()
 
-        drawValues(minimap, ordinate, minimap.rect)
+        drawValues(minimap, minimap.rect)
 
         save()
         clipOut(windowRect)
@@ -188,10 +187,10 @@ class Chart : View {
     }
 
     fun updatePage(page: Page) {
-        columnsToShow = BitSet(page.size - 1)
-        columnsToShow.set(0, page.size - 1)
         val xColumn = page["x"]!!
-        yColumns = page.filter { it.key != "x" }.values.map { ColumnCache(xColumn, it) }.toTypedArray()
+        yColumns = page.filter { it.key != "x" }.values.map {
+            ColumnCache(xColumn, it)
+        }.toTypedArray()
 
         updateDimensions(xColumn)
         updateSizes()
@@ -199,17 +198,56 @@ class Chart : View {
         invalidate()
     }
 
+    var ordinateAnimator: ValueAnimator = ValueAnimator()
+
     fun updateDimensions(xColumn: Column) {
         minimap.start = xColumn.min
         minimap.end = xColumn.max
 
-        ordinate.start = 0
-        ordinate.end = yColumns.filterIndexed { i, _ -> columnsToShow[i] }.map { it.max }.max() ?: 100
+        val max = yColumns.filter { it.doCount }.map { it.max }.max() ?: 1000
+//        ordinate.end = max
+
+        if(ordinate.end != max) {
+            ordinateAnimator.cancel()
+            ordinateAnimator = ValueAnimator.ofFloat(ordinate.end.toFloat(), max.toFloat())
+            ordinateAnimator.duration = 500
+            ordinateAnimator.addUpdateListener {
+                ordinate.end = (it.animatedValue as Float).toLong()
+                invalidate()
+            }
+            ordinateAnimator.start()
+        }
 
         if(abscissa.start == Axis.DEFAULT_MIN)
             abscissa.start = xColumn.min
         if(abscissa.end == Axis.DEFAULT_MAX)
             abscissa.end = xColumn.max
+    }
+
+    fun setColumnToShow(i: Int, s: Boolean) {
+        if(s) {
+            if(Color.alpha(yColumns[i].color) == 0)
+                ValueAnimator.ofInt(0, 255).run {
+                    duration = 500
+                    addUpdateListener {
+                        val a = it.animatedValue as Int
+                        yColumns[i].color = adjustAlpha(yColumns[i].color, a)
+                        invalidate()
+                    }
+                    start()
+                }
+            yColumns[i].doCount = true
+        } else if(Color.alpha(yColumns[i].color) > 0)
+            ValueAnimator.ofInt(Color.alpha(yColumns[i].color), 0).run {
+                duration = 500
+                addUpdateListener {
+                    val a = it.animatedValue as Int
+                    yColumns[i].color = adjustAlpha(yColumns[i].color, a)
+                    invalidate()
+                }
+                start()
+                yColumns[i].doCount = false
+            }
     }
 
     fun checkMinimapMode(rx: Float, ry: Float) {

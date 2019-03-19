@@ -43,9 +43,8 @@ class MainActivity : AppCompatActivity() {
                 CompoundButtonCompat.setButtonTintList(view, colorStateList)
 
                 view.setOnCheckedChangeListener { _, checked ->
-                    chart.columnsToShow.set(position, checked)
+                    chart.setColumnToShow(position, checked)
                     chart.updateDimensions(currentPage["x"]!!)
-                    chart.invalidate()
                 }
                 return view
             }
@@ -68,11 +67,11 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem) = when(item.itemId) {
         R.id.night_mode_on -> {
             when(AppCompatDelegate.getDefaultNightMode()) {
-                AppCompatDelegate.MODE_NIGHT_AUTO ->
-                    AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+                AppCompatDelegate.MODE_NIGHT_NO ->
+                    AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_AUTO)
                 AppCompatDelegate.MODE_NIGHT_YES ->
                     AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-                else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_AUTO)
+                else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
             }
             recreate()
             true

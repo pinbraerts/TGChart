@@ -1,11 +1,12 @@
 package did.pinbraerts.tgchart
 
 data class ColumnCache(
-    val color: Int,
+    var color: Int,
     val max: Long,
     val min: Long,
-    val lines: LongArray,
-    val range: Long = max - min
+    val lines: FloatArray,
+    val range: Long = max - min,
+    var doCount: Boolean = true
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -32,12 +33,12 @@ data class ColumnCache(
         y.color,
         y.max,
         y.min,
-        LongArray(y.data.size * 4 - 2) {
+        FloatArray(y.data.size * 4 - 2) {
             when(it % 4) {
-                0 -> x.data[it / 4]
-                1 -> y.data[it / 4]
-                2 -> x.data[it / 4 + 1]
-                else -> y.data[it / 4 + 1]
+                0 -> ((x.data[it / 4] - x.min).toDouble() / x.interval).toFloat()
+                1 -> (1 - y.data[it / 4].toDouble() / y.max).toFloat()
+                2 -> ((x.data[it / 4 + 1] - x.min).toDouble() / x.interval).toFloat()
+                else -> (1 - y.data[it / 4 + 1].toDouble() / y.max).toFloat()
             }
         }
     )
