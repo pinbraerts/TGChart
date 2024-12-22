@@ -204,7 +204,7 @@ class Chart : View {
         minimap.start = xColumn.min
         minimap.end = xColumn.max
 
-        val max = yColumns.filter { it.doCount }.map { it.max }.max() ?: 1000
+        val max = yColumns.filter { it.doCount }.maxOfOrNull { it.max } ?: 1000
 //        ordinate.end = max
 
         if(ordinate.end != max) {

@@ -11,7 +11,7 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
-import kotlinx.android.synthetic.main.activity_main.*
+import did.pinbraerts.tgchart.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
     var pages = Pages()
@@ -20,12 +20,13 @@ class MainActivity : AppCompatActivity() {
     val lock = Any()
 
     lateinit var adapter: ArrayAdapter<Column>
+    private lateinit var binding: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        setContentView(R.layout.activity_main)
-        setSupportActionBar(toolbar)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        setSupportActionBar(binding.toolbar)
 
         adapter = object: ArrayAdapter<Column>(this, android.R.layout.simple_list_item_checked) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
@@ -43,13 +44,13 @@ class MainActivity : AppCompatActivity() {
                 CompoundButtonCompat.setButtonTintList(view, colorStateList)
 
                 view.setOnCheckedChangeListener { _, checked ->
-                    chart.setColumnToShow(position, checked)
-                    chart.updateDimensions(currentPage["x"]!!)
+                    binding.chart.setColumnToShow(position, checked)
+                    binding.chart.updateDimensions(currentPage["x"]!!)
                 }
                 return view
             }
         }
-        columns.adapter = adapter
+        binding.columns.adapter = adapter
 
         LoadScope().load(resources.openRawResource(R.raw.chart_data)) {
             synchronized(lock) {
@@ -57,7 +58,7 @@ class MainActivity : AppCompatActivity() {
             }
             runOnUiThread {
                 pages.add(currentPage)
-                chart.updatePage(currentPage)
+                binding.chart.updatePage(currentPage)
                 adapter.clear()
                 adapter.addAll(currentPage.filter { it.key != "x" }.values)
             }
@@ -83,16 +84,16 @@ class MainActivity : AppCompatActivity() {
         super.onSaveInstanceState(outState)
 
         outState.run {
-            putLong("abscissa.start", chart.abscissa.start)
-            putLong("abscissa.end", chart.abscissa.end)
+            putLong("abscissa.start", binding.chart.abscissa.start)
+            putLong("abscissa.end", binding.chart.abscissa.end)
         }
     }
 
     override fun onRestoreInstanceState(state: Bundle) {
         super.onRestoreInstanceState(state)
 
-        chart.abscissa.start = state["abscissa.start"] as Long
-        chart.abscissa.end = state["abscissa.end"] as Long
+        binding.chart.abscissa.start = state["abscissa.start"] as Long
+        binding.chart.abscissa.end = state["abscissa.end"] as Long
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
